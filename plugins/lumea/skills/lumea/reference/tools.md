@@ -2,7 +2,7 @@
 
 _Файл сгенерирован `bun run scripts/plugin-tools-reference.ts` из `evals/mocks/lumea/_tools.json`; не править руками._
 
-Инструментов: 41. Порядок — как в `tools/list` сервера. Все id — полные uuid; короткий `#1d2155` сначала разрешить через `search`.
+Инструментов: 41. Порядок — как в `tools/list` сервера. Все id — полные uuid; короткий `#1d2155aa` сначала разрешить через `search`.
 
 ## `whoami`
 

@@ -9,7 +9,7 @@ argument-hint: '<slug | #iid> [проект] [суть фикса]'
 Аргументы: `$ARGUMENTS` — slug кейса или номер issue (`42`, `#42`; `!42` тоже принимается — в GitLab `!` означает MR, но пользователи так пишут), затем суть фикса (что сделано, что нужно от клиента). Процесс — `${CLAUDE_PLUGIN_ROOT}/skills/lumea/reference/workflows.md`, раздел «Resolve».
 
 1. Выборка:
-   - Кейс: `list_tickets { tags: ['case:<slug>'], includeClosed: true, perPage: 100 }` (`hasMore: true` → повторить с `page: 2` и дальше, пока не `false`); ref — `#` + первые 6 символов `id` (отдельного поля нет), имя клиента — прямо из ответа (`tickets[].client.name`), отдельно не искать.
+   - Кейс: `list_tickets { tags: ['case:<slug>'], includeClosed: true, perPage: 100 }` (`hasMore: true` → повторить с `page: 2` и дальше, пока не `false`); ref — `#` + первые 8 символов `id`, первая группа uuid (отдельного поля нет), имя клиента — прямо из ответа (`tickets[].client.name`), отдельно не искать.
    - Issue (`#iid`): нужен проект — в `list_issue_tickets` он обязателен. Если проект назван в `$ARGUMENTS` — использовать его; иначе `list_projects`: один проект — взять его, несколько — спросить, в каком искать `#iid`, и ждать ответа. Затем `list_issue_tickets { projectName, iid }` (`tickets[]` с `ticketRef`, `status`, `clientName`, `lastClientText`).
 
    В обоих случаях тикеты со `status: 'closed'` в рассылку не включать, показать их числом отдельно.

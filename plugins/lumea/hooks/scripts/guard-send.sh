@@ -34,7 +34,9 @@ tool=$(jq -r '.tool_name // ""' <<<"$input" | sed -E 's/^mcp__(plugin_lumea_lume
 
 # Первые 200 символов текста одной строкой, с многоточием при обрезке.
 preview() { jq -rn --arg t "$1" '$t | gsub("\n"; " ") | if length > 200 then .[0:200] + "…" else . end'; }
-short_ref() { printf '#%s' "$(printf '%s' "$1" | cut -c1-6)"; }
+# Тот же формат, что у ticketRef в lib/utils/ticket-ref.ts: «#» и первая
+# группа uuid (8 символов) — оператор сверяет ref в вопросе с шапкой тикета.
+short_ref() { printf '#%s' "$(printf '%s' "$1" | cut -c1-8)"; }
 
 decide() { # $1 = allow|ask|deny, $2 = reason
   jq -n --arg d "$1" --arg r "$2" \
