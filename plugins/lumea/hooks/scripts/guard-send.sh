@@ -99,6 +99,33 @@ case "$tool" in
     enable=$(jq -r '.tool_input.enable | if . == null then "" else tostring end' <<<"$input")
     decide ask "Lumea: AI на тикете $(short_ref "$ticket") → enable=$enable"
     ;;
+  create_quick_reply|update_quick_reply)
+    # Общий для create и update: у create shortcut обязателен, у update — любое
+    # подмножество полей; чего нет во входе, того нет и в тексте вопроса.
+    shortcut=$(jq -r '.tool_input.shortcut // ""' <<<"$input")
+    text=$(jq -r '.tool_input.text // ""' <<<"$input")
+    id=$(jq -r '.tool_input.id // ""' <<<"$input")
+    if [ "$tool" = "create_quick_reply" ]; then
+      verb="создать быстрый ответ «${shortcut}»"
+    else
+      fields=$(jq -r '[.tool_input | to_entries[] | select(.key != "id") | .key] | join(", ")' <<<"$input")
+      verb="изменить быстрый ответ ${id} (поля: ${fields})"
+      [ -n "$shortcut" ] && verb="$verb → shortcut «${shortcut}»"
+    fi
+    [ -n "$text" ] && verb="$verb: «$(preview "$text")»"
+    decide ask "Lumea: $verb"
+    ;;
+  delete_quick_reply)
+    # shortcut во входе — только для подтверждения (сервер сверяет его с
+    # строкой); без него показываем id.
+    shortcut=$(jq -r '.tool_input.shortcut // ""' <<<"$input")
+    id=$(jq -r '.tool_input.id // ""' <<<"$input")
+    if [ -n "$shortcut" ]; then
+      decide ask "Lumea: удалить быстрый ответ «${shortcut}» ($id) вместе с файлами — необратимо"
+    else
+      decide ask "Lumea: удалить быстрый ответ $id вместе с файлами — необратимо"
+    fi
+    ;;
   *)
     exit 0
     ;;

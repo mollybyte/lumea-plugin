@@ -23,6 +23,7 @@ allowed-tools: mcp__plugin_lumea_lumea__whoami, Bash(jq --version)
    | investigate | `ticket.view`, `message.read`                                                                                                                                 |
    | issue       | `ticket.list`, `message.read`, `issue.draft`, `issue.create`, `issue.link`                                                                                    |
    | watch       | `ticket.list`, `message.read`                                                                                                                                 |
+   | replies     | `quick_reply.read`; `new`/`edit`/`delete` — `quick_reply.create`/`quick_reply.update`/`quick_reply.delete`                                                    |
 
    Право считается выданным, если в `permissions` есть точный ключ, маска `resource.*` или `*`, либо роль `admin`. Недоступные скиллы перечислить с правом, которое нужно попросить у администратора на странице ролей. Часть возможностей `client` требует прав сверх базовых — их отсутствие не делает скилл недоступным целиком, но соответствующее действие скилл откажет выполнить: блокировка/разблокировка клиента — `client.block`/`client.unblock`, действие во внешнем сервисе — `client.external.action`.
 

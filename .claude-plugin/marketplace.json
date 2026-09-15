@@ -3,7 +3,7 @@
   "owner": { "name": "Lumea" },
   "metadata": {
     "description": "Плагин Lumea для Claude Code: тикеты, клиенты, кейсы и issue из терминала",
-    "version": "0.38.4"
+    "version": "0.38.5"
   },
   "plugins": [
     {
