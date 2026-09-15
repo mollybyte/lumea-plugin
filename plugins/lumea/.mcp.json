@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "lumea": {
+      "type": "http",
+      "url": "${LUMEA_URL:-https://crm.sotaservers.cloud}/api/mcp",
+      "headers": { "Authorization": "Bearer ${LUMEA_ACCESS_KEY}" }
+    }
+  }
+}

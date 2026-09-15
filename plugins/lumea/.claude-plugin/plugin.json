@@ -1,0 +1,9 @@
+{
+  "name": "lumea",
+  "displayName": "Lumea",
+  "version": "0.38.2",
+  "description": "Тикеты, клиенты, кейсы и issue Lumea из Claude Code: групповой разбор, сбор логов, массовые ответы",
+  "author": { "name": "Lumea" },
+  "homepage": "https://crm.sotaservers.cloud",
+  "keywords": ["lumea", "support", "crm", "tickets", "gitlab"]
+}

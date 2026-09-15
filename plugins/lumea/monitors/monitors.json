@@ -1,0 +1,8 @@
+[
+  {
+    "name": "lumea-watch",
+    "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/lumea-watch",
+    "description": "Lumea: новые тикеты, ответы и файлы клиентов по фильтру /lumea:watch",
+    "when": "on-skill-invoke:watch"
+  }
+]

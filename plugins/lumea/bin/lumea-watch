@@ -1,0 +1,238 @@
+#!/usr/bin/env node
+// Фоновый монитор плагина lumea: раз в 30 с зовёт MCP-инструмент ticket_updates
+// и печатает по строке на событие — Claude Code доставляет каждую строку stdout
+// в разговор как уведомление. Ошибки — только в stderr с бэкоффом, иначе они
+// сами станут уведомлениями. Состояние: ~/.lumea/watch.json (фильтр, пишет
+// `lumea-watch config …` из скилла /lumea:watch) и ~/.lumea/watch-cursor (since).
+'use strict'
+const fs = require('node:fs')
+const path = require('node:path')
+const os = require('node:os')
+
+const DIR = process.env.LUMEA_WATCH_DIR || path.join(os.homedir(), '.lumea')
+const FILTER = path.join(DIR, 'watch.json')
+const CURSOR = path.join(DIR, 'watch-cursor')
+const URL_BASE = (process.env.LUMEA_URL || 'https://crm.sotaservers.cloud').replace(/\/$/, '')
+const ENDPOINT = `${URL_BASE}/api/mcp`
+const INTERVAL_MS = 30_000
+const MAX_BACKOFF_MS = 5 * 60_000
+// Полуоткрытое соединение без таймаута повесило бы монитор молча — навсегда.
+const TIMEOUT_MS = Number(process.env.LUMEA_WATCH_TIMEOUT_MS) || 20_000
+// Допуск на расхождение часов: nextSince сервера может быть чуть впереди наших.
+const CLOCK_SKEW_MS = 60_000
+// Сервер отвергает since старше 7 дней; курсор старше этого порога бесполезен
+// и загнал бы цикл в вечный бэкофф, не сдвигая курсор.
+const MAX_CURSOR_AGE_MS = 6 * 24 * 60 * 60_000
+const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
+// Без ключа монитор ходил бы на прод с пустым Bearer и получал 401 в stderr,
+// которого никто не видит. Переменные окружения процесс читает при старте —
+// ключ, заданный позже, придёт только с новой сессией.
+const NO_KEY = 'lumea-watch: не задан LUMEA_ACCESS_KEY — выполните /lumea:setup, затем новая сессия Claude Code'
+const hasKey = () => Boolean(process.env.LUMEA_ACCESS_KEY)
+
+function readFilter() {
+  try {
+    return JSON.parse(fs.readFileSync(FILTER, 'utf8'))
+  } catch {
+    return { mode: 'off' }
+  }
+}
+function writeFilter(f) {
+  fs.mkdirSync(DIR, { recursive: true })
+  fs.writeFileSync(FILTER, JSON.stringify(f))
+}
+function describe(f) {
+  switch (f.mode) {
+    case 'case':
+      return `Lumea watch: кейс ${f.value}`
+    case 'project':
+      return `Lumea watch: проект ${f.value}`
+    case 'all':
+      return 'Lumea watch: все проекты'
+    default:
+      return 'Lumea watch: выключен'
+  }
+}
+
+function config(args) {
+  if (!hasKey()) {
+    console.error(NO_KEY)
+    return 1
+  }
+  // Скилл передаёт $ARGUMENTS без кавычек: `project Faygo VPN` — три аргумента.
+  const [mode] = args
+  const value = args.slice(1).join(' ').trim()
+  if (!mode) {
+    console.log(describe(readFilter()))
+    return 0
+  }
+  let f
+  if (mode === 'case') {
+    if (!value || !SLUG.test(value)) {
+      console.error('lumea-watch: slug кейса — латиница, цифры, дефис, до 32 символов')
+      return 1
+    }
+    f = { mode: 'case', value }
+  } else if (mode === 'project') {
+    if (!value) {
+      console.error('lumea-watch: укажите имя проекта, как в list_projects')
+      return 1
+    }
+    f = { mode: 'project', value }
+  } else if (mode === 'all') f = { mode: 'all' }
+  else if (mode === 'off') f = { mode: 'off' }
+  else {
+    console.error('usage: lumea-watch config case <slug> | project <name> | all | off')
+    return 1
+  }
+  writeFilter(f)
+  // Новый фильтр — свежий курсор: старые события по другому фильтру не нужны.
+  try {
+    fs.unlinkSync(CURSOR)
+  } catch {}
+  console.log(describe(f))
+  return 0
+}
+
+function readCursor() {
+  let saved = ''
+  try {
+    saved = fs.readFileSync(CURSOR, 'utf8').trim()
+  } catch {}
+  const age = Date.now() - Date.parse(saved)
+  // NaN (файла нет или в нём мусор) тоже не проходит сравнение.
+  if (age >= -CLOCK_SKEW_MS && age <= MAX_CURSOR_AGE_MS) return saved
+  return new Date(Date.now() - INTERVAL_MS).toISOString()
+}
+
+/**
+ * Тело ответа: JSON или SSE — mcp-handler выбирает форму сам. В SSE берём
+ * кадр с ответом (result/error), а не первый попавшийся: перед ним может
+ * идти уведомление.
+ */
+function parseRpc(text) {
+  const frames = text
+    .split('\n')
+    .filter(l => l.startsWith('data:'))
+    .map(l => JSON.parse(l.slice(5)))
+  if (frames.length === 0) return JSON.parse(text)
+  return frames.find(f => f.result !== undefined || f.error !== undefined) || frames[0]
+}
+
+async function callTicketUpdates(filter, since) {
+  const args = { since, limit: 100 }
+  if (filter.mode === 'case') args.tags = [`case:${filter.value}`]
+  if (filter.mode === 'project') args.projectName = filter.value
+  let text
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        Authorization: `Bearer ${process.env.LUMEA_ACCESS_KEY || ''}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'tools/call',
+        params: { name: 'ticket_updates', arguments: args },
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    text = await res.text()
+  } catch (err) {
+    if (err && err.name === 'TimeoutError') throw new Error(`таймаут ответа ${TIMEOUT_MS} мс`)
+    throw err
+  }
+  const rpc = parseRpc(text)
+  if (rpc.error) throw new Error(`RPC ${rpc.error.code}: ${rpc.error.message}`)
+  const result = rpc.result || {}
+  if (result.isError)
+    throw new Error(`tool error: ${(result.content || []).map(c => c.text).join(' ')}`)
+  return result.structuredContent || JSON.parse(result.content[0].text)
+}
+
+function formatSize(bytes) {
+  if (bytes == null) return ''
+  if (bytes < 1024) return ` (${bytes} Б)`
+  if (bytes < 1024 * 1024) return ` (${Math.round(bytes / 1024)} КБ)`
+  return ` (${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ)`
+}
+
+/**
+ * Любая подстановка в строку уведомления: одна строка stdout = одно
+ * уведомление, перенос внутри поля разорвал бы его на два; null и пустое
+ * значение (project, client — nullable по контракту) заменяются на fallback.
+ */
+function oneLine(value, fallback) {
+  const s = value == null ? '' : String(value).replace(/\s+/g, ' ').trim()
+  return s || fallback
+}
+
+function formatEvent(filter, e) {
+  const project = oneLine(e.project, 'Lumea')
+  const scope = filter.mode === 'case' ? filter.value : project
+  const client = oneLine(e.client, 'клиент')
+  if (e.kind === 'ticket_created')
+    return `🆕 ${project} · ${e.ticketRef} без ответа: «${oneLine(e.title, '')}»`
+  if (e.attachment) {
+    const name = oneLine(e.attachment.fileName, '')
+    return `🔔 ${scope} · ${e.ticketRef} ${client} прислал файл${name ? ` ${name}` : ''}${formatSize(e.attachment.fileSize)}`
+  }
+  return `💬 ${scope} · ${e.ticketRef} ${client}: «${oneLine(e.text, '').slice(0, 200)}»`
+}
+
+const MAX_PAGES = 5
+
+async function pollOnce() {
+  const filter = readFilter()
+  if (filter.mode === 'off') return
+  if (!hasKey()) throw new Error(NO_KEY.replace(/^lumea-watch: /, ''))
+  let since = readCursor()
+  // truncated: true — событий больше limit, сервер отдал первую страницу;
+  // дочитываем хвост сразу, но не больше MAX_PAGES за опрос.
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const data = await callTicketUpdates(filter, since)
+    for (const e of data.events || []) console.log(formatEvent(filter, e))
+    if (data.nextSince) {
+      fs.mkdirSync(DIR, { recursive: true })
+      fs.writeFileSync(CURSOR, data.nextSince)
+      since = data.nextSince
+    }
+    if (!data.truncated) break
+  }
+}
+
+async function loop() {
+  // Ключа не будет до конца сессии — незачем повторять одно и то же в stderr.
+  if (!hasKey()) {
+    console.error(NO_KEY)
+    process.exit(1)
+  }
+  let backoff = INTERVAL_MS
+  for (;;) {
+    try {
+      await pollOnce()
+      backoff = INTERVAL_MS
+    } catch (err) {
+      console.error(`lumea-watch: ${err && err.message ? err.message : err}`)
+      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
+    }
+    await new Promise(r => setTimeout(r, backoff))
+  }
+}
+
+const [cmd, ...rest] = process.argv.slice(2)
+if (cmd === 'config') process.exit(config(rest))
+// Без process.exit(): на macOS запись в пайп асинхронная, принудительный
+// выход обрезал бы хвост stdout. Код выхода 0 в любом случае — ошибка опроса
+// уже напечатана в stderr.
+else if (cmd === 'poll-once')
+  pollOnce().catch(err => console.error(`lumea-watch: ${err && err.message ? err.message : err}`))
+else if (!cmd) loop()
+else {
+  console.error('usage: lumea-watch [config …|poll-once]')
+  process.exit(1)
+}

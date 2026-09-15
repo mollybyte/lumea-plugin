@@ -1,0 +1,51 @@
+{
+  "description": "Защита от отправки без подтверждения, подсказка о ключе на старте, отчёт о недоставленных.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__(plugin_lumea_lumea|lumea)__(send_message|send_quick_reply|bulk_send_messages|block_client|run_external_action|create_issue_from_ticket|link_issue|toggle_ai)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-send.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__(plugin_lumea_lumea|lumea)__bulk_update_tickets",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-bulk-status.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__(plugin_lumea_lumea|lumea)__(bulk_send_messages|bulk_update_tickets)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/after-bulk.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

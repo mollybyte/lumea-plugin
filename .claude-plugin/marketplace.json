@@ -1,0 +1,17 @@
+{
+  "name": "lumea",
+  "owner": { "name": "Lumea" },
+  "metadata": {
+    "description": "Плагин Lumea для Claude Code: тикеты, клиенты, кейсы и issue из терминала",
+    "version": "0.38.2"
+  },
+  "plugins": [
+    {
+      "name": "lumea",
+      "source": "./plugins/lumea",
+      "description": "Тикеты, клиенты, кейсы и issue Lumea из Claude Code: групповой разбор, сбор логов, массовые ответы",
+      "category": "productivity",
+      "keywords": ["lumea", "support", "crm", "tickets", "gitlab"]
+    }
+  ]
+}
