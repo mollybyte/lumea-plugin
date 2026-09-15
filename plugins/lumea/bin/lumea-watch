@@ -12,7 +12,8 @@ const os = require('node:os')
 const DIR = process.env.LUMEA_WATCH_DIR || path.join(os.homedir(), '.lumea')
 const FILTER = path.join(DIR, 'watch.json')
 const CURSOR = path.join(DIR, 'watch-cursor')
-const URL_BASE = (process.env.LUMEA_URL || 'https://crm.sotaservers.cloud').replace(/\/$/, '')
+// Адрес Lumea не зашит: домены меняются, пользователь задаёт LUMEA_URL сам.
+const URL_BASE = (process.env.LUMEA_URL || '').replace(/\/$/, '')
 const ENDPOINT = `${URL_BASE}/api/mcp`
 const INTERVAL_MS = 30_000
 const MAX_BACKOFF_MS = 5 * 60_000
@@ -24,11 +25,17 @@ const CLOCK_SKEW_MS = 60_000
 // и загнал бы цикл в вечный бэкофф, не сдвигая курсор.
 const MAX_CURSOR_AGE_MS = 6 * 24 * 60 * 60_000
 const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
-// Без ключа монитор ходил бы на прод с пустым Bearer и получал 401 в stderr,
-// которого никто не видит. Переменные окружения процесс читает при старте —
-// ключ, заданный позже, придёт только с новой сессией.
-const NO_KEY = 'lumea-watch: не задан LUMEA_ACCESS_KEY — выполните /lumea:setup, затем новая сессия Claude Code'
-const hasKey = () => Boolean(process.env.LUMEA_ACCESS_KEY)
+// Без ключа монитор ходил бы на сервер с пустым Bearer и получал 401 в stderr,
+// которого никто не видит; без адреса — fetch на `/api/mcp` без хоста с
+// невнятным TypeError. Переменные окружения процесс читает при старте —
+// значение, заданное позже, придёт только с новой сессией. Одна строка на
+// обе переменные, если нет обеих.
+const missingEnv = () => ['LUMEA_URL', 'LUMEA_ACCESS_KEY'].filter(name => !process.env[name])
+const NO_ENV = () => {
+  const names = missingEnv()
+  return `lumea-watch: не задан${names.length > 1 ? 'ы' : ''} ${names.join(' и ')} — выполните /lumea:setup, затем новая сессия Claude Code`
+}
+const hasEnv = () => missingEnv().length === 0
 
 function readFilter() {
   try {
@@ -55,11 +62,11 @@ function describe(f) {
 }
 
 function config(args) {
-  if (!hasKey()) {
-    console.error(NO_KEY)
+  if (!hasEnv()) {
+    console.error(NO_ENV())
     return 1
   }
-  // Скилл передаёт $ARGUMENTS без кавычек: `project Faygo VPN` — три аргумента.
+  // Скилл передаёт $ARGUMENTS без кавычек: `project Acme VPN` — три аргумента.
   const [mode] = args
   const value = args.slice(1).join(' ').trim()
   if (!mode) {
@@ -189,7 +196,7 @@ const MAX_PAGES = 5
 async function pollOnce() {
   const filter = readFilter()
   if (filter.mode === 'off') return
-  if (!hasKey()) throw new Error(NO_KEY.replace(/^lumea-watch: /, ''))
+  if (!hasEnv()) throw new Error(NO_ENV().replace(/^lumea-watch: /, ''))
   let since = readCursor()
   // truncated: true — событий больше limit, сервер отдал первую страницу;
   // дочитываем хвост сразу, но не больше MAX_PAGES за опрос.
@@ -206,9 +213,9 @@ async function pollOnce() {
 }
 
 async function loop() {
-  // Ключа не будет до конца сессии — незачем повторять одно и то же в stderr.
-  if (!hasKey()) {
-    console.error(NO_KEY)
+  // Переменных не будет до конца сессии — незачем повторять одно и то же в stderr.
+  if (!hasEnv()) {
+    console.error(NO_ENV())
     process.exit(1)
   }
   let backoff = INTERVAL_MS

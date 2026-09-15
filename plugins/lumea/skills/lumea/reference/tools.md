@@ -12,7 +12,7 @@ _Файл сгенерирован `bun run scripts/plugin-tools-reference.ts` �
 
 ## `list_projects`
 
-Проекты Lumea (Sota, Faygo, …): id, название и type (sotavpn/faygovpn). projectId нужен фильтрам и внешним данным.
+Проекты Lumea: id, название и type. projectId нужен фильтрам и внешним данным.
 
 Без аргументов.
 
@@ -219,7 +219,7 @@ _Файл сгенерирован `bun run scripts/plugin-tools-reference.ts` �
 | Поле | Тип | Обяз. | Описание |
 | --- | --- | --- | --- |
 | `clientId` | uuid | да |  |
-| `projectType` | `sotavpn` / `faygovpn` | да | Тип проекта из list_projects |
+| `projectType` | string (≥ 1 симв.) | да | Тип проекта — поле type из list_projects |
 | `includePayments` | boolean | нет | По умолчанию `false`. |
 
 ## `run_external_action`
@@ -229,7 +229,7 @@ _Файл сгенерирован `bun run scripts/plugin-tools-reference.ts` �
 | Поле | Тип | Обяз. | Описание |
 | --- | --- | --- | --- |
 | `clientId` | uuid | да |  |
-| `projectType` | `sotavpn` / `faygovpn` | да | Тип проекта из list_projects |
+| `projectType` | string (≥ 1 симв.) | да | Тип проекта — поле type из list_projects |
 | `actionId` | string (≥ 1 симв.) | да |  |
 | `accountIdentifier` | string | нет | Конкретный аккаунт из get_client_external; без него — основной |
 | `params` | object | нет |  |
