@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__(plugin_lumea_lumea|lumea)__(send_message|send_quick_reply|bulk_send_messages|block_client|run_external_action|create_issue_from_ticket|link_issue|toggle_ai|create_quick_reply|update_quick_reply|delete_quick_reply)",
+        "matcher": "mcp__(plugin_lumea_lumea|lumea)__(send_message|send_quick_reply|bulk_send_messages|block_client|run_external_action|create_issue_from_ticket|link_issue|toggle_ai|create_quick_reply|update_quick_reply|delete_quick_reply|create_broadcast|start_broadcast|resume_broadcast|retry_broadcast|cancel_broadcast)",
         "hooks": [
           {
             "type": "command",

@@ -128,6 +128,37 @@ case "$tool" in
       decide ask "Lumea: удалить быстрый ответ $id вместе с файлами — необратимо"
     fi
     ;;
+  create_broadcast)
+    # Создание само ничего не шлёт, но замораживает выборку и заводит джоб на
+    # каждый тикет — человек должен увидеть потолок и фильтры до этого.
+    name=$(jq -r '.tool_input.name // ""' <<<"$input")
+    max=$(jq -r '.tool_input.maxRecipients // ""' <<<"$input")
+    statuses=$(jq -r '.tool_input.statuses // [] | join(", ")' <<<"$input")
+    project=$(jq -r '.tool_input.projectName // "все проекты"' <<<"$input")
+    if [ -z "$max" ]; then
+      decide deny "Lumea: create_broadcast без maxRecipients — потолок получателей обязателен"
+      exit 0
+    fi
+    decide ask "Lumea: создать рассылку «${name}» (${project}, статусы: ${statuses}, потолок ${max} получателей). Отправка начнётся отдельно, по start_broadcast"
+    ;;
+  start_broadcast|resume_broadcast)
+    id=$(jq -r '.tool_input.broadcastId // ""' <<<"$input")
+    if [ "$tool" = "start_broadcast" ]; then
+      decide ask "Lumea: ЗАПУСТИТЬ рассылку $id — сообщения уйдут клиентам по всей очереди"
+    else
+      decide ask "Lumea: возобновить остановленную рассылку $id — отправка продолжится клиентам"
+    fi
+    ;;
+  retry_broadcast)
+    id=$(jq -r '.tool_input.broadcastId // ""' <<<"$input")
+    decide ask "Lumea: повторить упавшие джобы рассылки $id — сообщения уйдут клиентам заново"
+    ;;
+  cancel_broadcast)
+    # Остановка ничего не шлёт, но обрывает идущую кампанию на середине —
+    # часть клиентов получит сообщение, часть нет.
+    id=$(jq -r '.tool_input.broadcastId // ""' <<<"$input")
+    decide ask "Lumea: остановить рассылку $id — оставшиеся получатели не получат сообщение"
+    ;;
   *)
     exit 0
     ;;
