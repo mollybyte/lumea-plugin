@@ -1,7 +1,7 @@
 {
   "name": "lumea",
   "displayName": "Lumea",
-  "version": "0.39.1",
+  "version": "0.39.2",
   "description": "Тикеты, клиенты, кейсы и issue Lumea из Claude Code: групповой разбор, сбор логов, массовые ответы",
   "author": { "name": "Lumea" },
   "homepage": "https://github.com/mollybyte/lumea-plugin",
