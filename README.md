@@ -11,4 +11,4 @@
 
 Обновление: `/plugin marketplace update lumea`, затем `/plugin update lumea`.
 
-Текущая версия: **0.39.2**.
+Текущая версия: **0.40.0**.
