@@ -159,6 +159,32 @@ case "$tool" in
     id=$(jq -r '.tool_input.broadcastId // ""' <<<"$input")
     decide ask "Lumea: остановить рассылку $id — оставшиеся получатели не получат сообщение"
     ;;
+  create_task)
+    # Задача уходит коллегам уведомлением в админ-бот — клиент её не видит,
+    # но исполнитель и срок должны быть те, что человек имел в виду.
+    title=$(jq -r '.tool_input.title // ""' <<<"$input")
+    assignees=$(jq -r '.tool_input.assignees // [] | join(", ")' <<<"$input")
+    due=$(jq -r '.tool_input.dueOn // "без срока"' <<<"$input")
+    ticket=$(jq -r '.tool_input.ticketId // ""' <<<"$input")
+    verb="создать задачу «$(preview "$title")» исполнителям: ${assignees} (срок: ${due})"
+    [ -n "$ticket" ] && verb="$verb, тикет $(short_ref "$ticket")"
+    decide ask "Lumea: $verb"
+    ;;
+  update_task)
+    id=$(jq -r '.tool_input.taskId // ""' <<<"$input")
+    fields=$(jq -r '[.tool_input | to_entries[] | select(.key != "taskId") | .key] | join(", ")' <<<"$input")
+    status=$(jq -r '.tool_input.status // ""' <<<"$input")
+    assignees=$(jq -r '.tool_input.assignees // [] | join(", ")' <<<"$input")
+    verb="изменить задачу ${id} (поля: ${fields})"
+    [ -n "$status" ] && verb="$verb → статус ${status}"
+    [ -n "$assignees" ] && verb="$verb → исполнители: ${assignees}"
+    decide ask "Lumea: $verb"
+    ;;
+  add_task_comment)
+    id=$(jq -r '.tool_input.taskId // ""' <<<"$input")
+    text=$(jq -r '.tool_input.content // ""' <<<"$input")
+    decide ask "Lumea: комментарий к задаче $id (увидят автор и исполнители): «$(preview "$text")»"
+    ;;
   *)
     exit 0
     ;;

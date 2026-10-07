@@ -46,6 +46,8 @@ Lumea — CRM поддержки нескольких проектов. MCP-се
 | рассылка по шаблону многим тикетам        | `preview_broadcast` → `create_broadcast` → `start_broadcast`; ход — `get_broadcast`, разбор ошибок — `list_broadcast_jobs`          | `create_broadcast` без предпросмотра; `bulk_send_messages` на сотни тикетов   |
 | кто я, какие права                        | `whoami` — один раз за разговор                                                                                                     |                                                                               |
 
+Задачи сотрудников — внутренние поручения коллегам, клиент их не видит: `list_tasks` (мои / я поручил / коллеги по праву), `create_task` (исполнителей можно назвать по имени из `list_staff`), `update_task` (статус `todo|in_progress|waiting|done`, срок, исполнители), `add_task_comment`. Задача уместна, где нужен ответственный и срок; заметка (`add_internal_note`) — где нужен только факт в тикете.
+
 Полный список с полями и лимитами — `reference/tools.md`.
 
 ## Лимиты
